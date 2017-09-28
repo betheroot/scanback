@@ -1,15 +1,17 @@
 package main
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
-	log "github.com/Sirupsen/logrus"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"os/exec"
 	"strconv"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 type Configuration struct {
@@ -93,17 +95,26 @@ func main() {
 	flag.Parse()
 	config := configurationFrom(*configFile)
 
+	tlsConfig := &tls.Config{
+		MinVersion:               tls.VersionTLS12,
+		PreferServerCipherSuites: true,
+		CurvePreferences: []tls.CurveID{
+			tls.CurveP256,
+		},
+	}
+
 	queue := make(chan net.IP)
 	go scanner(queue, &config)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", auth(addIp, &config, queue))
 
 	server := &http.Server{
-		Addr:    config.Address + ":" + strconv.Itoa(config.Port),
-		Handler: mux,
+		Addr:      config.Address + ":" + strconv.Itoa(config.Port),
+		Handler:   mux,
+		TLSConfig: tlsConfig,
 	}
 
-	log.Fatal(server.ListenAndServe())
+	log.Fatal(server.ListenAndServeTLS(config.CertFile, config.KeyFile))
 }
 
 func auth(fn requestWithQueue, config *Configuration, queue chan net.IP) http.HandlerFunc {

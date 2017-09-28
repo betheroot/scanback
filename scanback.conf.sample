@@ -1,0 +1,10 @@
+{
+"port":8443,
+"address":"localhost",
+"user":"username",
+"password":"password",
+"nmap":"/usr/local/bin/nmap",
+"scanDirectory":"./scans",
+"certFile":"snakeoil.crt",
+"keyFile":"snakeoil.key"
+}
