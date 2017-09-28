@@ -32,6 +32,27 @@ func init() {
 	log.SetLevel(log.InfoLevel)
 }
 
+func main() {
+	configFile := flag.String("config", "scanback.conf", "JSON configuration file")
+	flag.Parse()
+	config := configurationFrom(*configFile)
+
+	queue := make(chan net.IP)
+	go scanner(queue, &config)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", basicAuth(addIp, &config, queue))
+
+	server := &http.Server{
+		Addr:      config.Address + ":" + strconv.Itoa(config.Port),
+		Handler:   mux,
+		TLSConfig: tlsConfig(),
+	}
+
+	log.Infof("Starting server on port %s:%d", config.Address, config.Port)
+	log.Fatal(server.ListenAndServeTLS(config.CertFile, config.KeyFile))
+}
+
 func configurationFrom(configFile string) Configuration {
 	var config Configuration
 	jsonConfig, err := ioutil.ReadFile(configFile)
@@ -47,29 +68,14 @@ func configurationFrom(configFile string) Configuration {
 	return config
 }
 
-func addIp(w http.ResponseWriter, request *http.Request, queue chan net.IP, config *Configuration) {
-	mangledIp, _, err := net.SplitHostPort(request.RemoteAddr)
-	if err != nil {
-		log.Fatalf("A bad thing: %s", err)
+func tlsConfig() *tls.Config {
+	return &tls.Config{
+		MinVersion:               tls.VersionTLS12,
+		PreferServerCipherSuites: true,
+		CurvePreferences: []tls.CurveID{
+			tls.CurveP256,
+		},
 	}
-
-	ip := net.ParseIP(mangledIp)
-	log.Infof("Added %s to queue", ip)
-	queue <- ip
-	msg := fmt.Sprintf("Added %s to queue", ip)
-	fmt.Fprintf(w, display(msg))
-}
-
-func display(input string) string {
-	return fmt.Sprintf(
-		"<html>"+
-			"<head>"+
-			"<title>betheroot</title>"+
-			"</head>"+
-			"<body>"+
-			"<h1>%s</h1>"+
-			"</body>"+
-			"</html>", input)
 }
 
 func scanner(queue <-chan net.IP, config *Configuration) {
@@ -90,34 +96,20 @@ func scan(ip net.IP, config *Configuration) {
 	log.Infof("Finished scan of %s", ip)
 }
 
-func main() {
-	configFile := flag.String("config", "scanback.conf", "JSON configuration file")
-	flag.Parse()
-	config := configurationFrom(*configFile)
-
-	tlsConfig := &tls.Config{
-		MinVersion:               tls.VersionTLS12,
-		PreferServerCipherSuites: true,
-		CurvePreferences: []tls.CurveID{
-			tls.CurveP256,
-		},
+func addIp(w http.ResponseWriter, request *http.Request, queue chan net.IP, config *Configuration) {
+	mangledIp, _, err := net.SplitHostPort(request.RemoteAddr)
+	if err != nil {
+		log.Fatalf("Error: %s", err)
 	}
 
-	queue := make(chan net.IP)
-	go scanner(queue, &config)
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", auth(addIp, &config, queue))
-
-	server := &http.Server{
-		Addr:      config.Address + ":" + strconv.Itoa(config.Port),
-		Handler:   mux,
-		TLSConfig: tlsConfig,
-	}
-
-	log.Fatal(server.ListenAndServeTLS(config.CertFile, config.KeyFile))
+	ip := net.ParseIP(mangledIp)
+	log.Infof("Added %s to queue", ip)
+	queue <- ip
+	msg := fmt.Sprintf("Added %s to queue", ip)
+	fmt.Fprintf(w, htmlFor(msg))
 }
 
-func auth(fn requestWithQueue, config *Configuration, queue chan net.IP) http.HandlerFunc {
+func basicAuth(fn requestWithQueue, config *Configuration, queue chan net.IP) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("WWW-Authenticate", fmt.Sprintf(`"Basic realm=%s"`, config.Domain))
 		user, pass, _ := r.BasicAuth()
@@ -128,4 +120,16 @@ func auth(fn requestWithQueue, config *Configuration, queue chan net.IP) http.Ha
 		}
 		fn(w, r, queue, config)
 	}
+}
+
+func htmlFor(input string) string {
+	return fmt.Sprintf(
+		"<html>"+
+			"<head>"+
+			"<title>betheroot</title>"+
+			"</head>"+
+			"<body>"+
+			"<h1>%s</h1>"+
+			"</body>"+
+			"</html>", input)
 }
