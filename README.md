@@ -18,3 +18,6 @@ password, and paths to your TLS key and certificate.  Then hit it with
 You can, of course, specify the bind address, port, etc. through the JSON
 config.  You could also use the included snakeoil certs and use `-k` in curl,
 but that would be terrible.  Please don't be terrible
+
+Scans will be output in normal, XML, and grep-able file formats to
+`scanback_IP_ADDRESS` in the directory you specify via the JSON configuration.
