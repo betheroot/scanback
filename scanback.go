@@ -26,7 +26,7 @@ type Configuration struct {
 	KeyFile       string `json:"keyFile"`
 }
 
-type requestWithQueue func(w http.ResponseWriter, r *http.Request, q chan net.IP, c *Configuration)
+type decoratedRequest func(w http.ResponseWriter, r *http.Request, q chan net.IP, c *Configuration)
 
 func init() {
 	log.SetLevel(log.InfoLevel)
@@ -109,7 +109,7 @@ func addIp(w http.ResponseWriter, request *http.Request, queue chan net.IP, conf
 	fmt.Fprintf(w, htmlFor(msg))
 }
 
-func basicAuth(fn requestWithQueue, config *Configuration, queue chan net.IP) http.HandlerFunc {
+func basicAuth(fn decoratedRequest, config *Configuration, queue chan net.IP) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("WWW-Authenticate", fmt.Sprintf(`"Basic realm=%s"`, config.Domain))
 		user, pass, _ := r.BasicAuth()
