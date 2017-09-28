@@ -6,5 +6,6 @@
 "nmap":"/usr/local/bin/nmap",
 "scanDirectory":"./scans",
 "certFile":"snakeoil.crt",
-"keyFile":"snakeoil.key"
+"keyFile":"snakeoil.key",
+"domain":"betheroot.com"
 }
