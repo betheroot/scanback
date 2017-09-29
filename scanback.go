@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"html"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -131,5 +132,5 @@ func htmlFor(input string) string {
 			"<body>"+
 			"<h1>%s</h1>"+
 			"</body>"+
-			"</html>", input)
+			"</html>", html.EscapeString(input))
 }
